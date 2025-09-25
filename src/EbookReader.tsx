@@ -2,22 +2,24 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { ReactReader } from 'react-reader';
 import FontFamilySelector from './components/FontFamilySelector';
 import FontSizeSelector from './components/FontSizeSelector';
-import ReadingModeToggle, { ReadingMode } from './components/ReadingModeToggle';
-import ThemeToggle, { ThemeMode } from './components/ThemeToggle';
+import ReadingModeToggle from './components/ReadingModeToggle';
+import ThemeToggle from './components/ThemeToggle';
 import HighlightColorSelector from './components/HighlightColorSelector';
-import HighlightsList, { type HighlightItem } from './components/HighlightsList';
+import HighlightsList from './components/HighlightsList';
 import useHighlighting from './hooks/useHighlighting';
+import useReaderTheme from './hooks/useReaderTheme';
+import useReadingMode from './hooks/useReadingMode';
+import useReaderLocation from './hooks/useReaderLocation';
+import useHighlightSettings from './hooks/useHighlightSettings';
+import useRenditionBinder from './hooks/useRenditionBinder';
 
 const EbookReader: React.FC = () => {
 
-	const [location, setLocation] = useState<string | number>(0);
-	const [fontFamily, setFontFamily] = useState<string>('inherit');
-	const [fontSize, setFontSize] = useState<string>('16px');
-	const [readingMode, setReadingMode] = useState<ReadingMode>('paginated');
-	const [themeMode, setThemeMode] = useState<ThemeMode>('light');
-	const renditionRef = useRef<any | null>(null);
-	const [highlightColor, setHighlightColor] = useState<string>('#ef4444');
-	const [showHighlights, setShowHighlights] = useState<boolean>(false);
+	const { location, setLocation, handleLocationChanged } = useReaderLocation();
+	const { fontFamily, setFontFamily, fontSize, setFontSize, themeMode, setThemeMode, bindToRendition: bindTheme, applyTheme } = useReaderTheme();
+	const { readingMode, setReadingMode, epubOptions, bindScrollBehavior } = useReadingMode();
+	const { renditionRef, bindAll } = useRenditionBinder();
+	const { highlightColor, setHighlightColor, showHighlights, setShowHighlights } = useHighlightSettings();
 
 	const {
 		highlightMode,
@@ -32,10 +34,6 @@ const EbookReader: React.FC = () => {
 		removeHighlight,
 		dismissUndo,
 	} = useHighlighting({ highlightColor, readingMode });
-
-	const handleLocationChanged = useCallback((epubcfi: string) => {
-		setLocation(epubcfi);
-	}, []);
 
 	const readerHeader = useMemo(() => (
 		<div className="flex gap-2 items-center p-2">
@@ -64,84 +62,24 @@ const EbookReader: React.FC = () => {
 		</div>
 	), [readingMode, themeMode, fontFamily, fontSize, highlightColor, highlights.length, highlightMode]);
 
-	const applyTheme = useCallback(() => {
-		if (!renditionRef.current) return;
-		// Registra regras no body do iframe do EPUB e força seleção do tema
-		renditionRef.current.themes.register('custom', {
-			body: {
-				'font-family': `${fontFamily} !important`,
-				'font-size': fontSize,
-				'color': themeMode === 'dark' ? '#ffffff' : '#000000',
-				'background': themeMode === 'dark' ? '#000000' : '#ffffff',
-			},
-		});
-		renditionRef.current.themes.select('custom');
-		// Refina com APIs dedicadas (alguns livros têm CSS agressivo)
-		renditionRef.current.themes.override('font-family', `${fontFamily} !important`);
-		renditionRef.current.themes.fontSize(fontSize);
-		// Ajusta tema por override explícito
-		renditionRef.current.themes.override('color', themeMode === 'dark' ? '#ffffff' : '#000000');
-		renditionRef.current.themes.override('background', themeMode === 'dark' ? '#000000' : '#ffffff');
-	}, [fontFamily, fontSize, themeMode]);
+	const applyThemeLocal = useCallback(() => { applyTheme(); }, [applyTheme]);
 
 	const handleGetRendition = useCallback((rendition: any) => {
-		renditionRef.current = rendition;
-		applyTheme();
-		// Aplica comportamento suave de scroll quando em modo "scrolled"
+		bindAll(rendition);
+		bindTheme(rendition);
 		try {
-			if (readingMode === 'scrolled' && renditionRef.current?.manager?.container?.style) {
-				renditionRef.current.manager.container.style['scroll-behavior'] = 'smooth';
-			}
+			bindScrollBehavior(renditionRef.current);
 		} catch { }
 
-		// Conecta listeners do hook
 		const detach = attachToRendition(rendition);
 		return detach;
-	}, [applyTheme, readingMode]);
+	}, [bindTheme, bindScrollBehavior, bindAll, readingMode]);
 
-	React.useEffect(() => {
-		applyTheme();
-	}, [applyTheme]);
-
-	// Reapply é tratado dentro do hook
-
-	// Atalhos, undo e reapply são tratados no hook
-
-	const epubOptions = useMemo(() => {
-		
-		if (readingMode === 'scrolled') {
-			return {
-				flow: 'scrolled',
-				manager: 'continuous',
-				spread: 'none',
-				allowPopups: false,
-				allowScriptedContent: false,
-			} as const;
-		}
-		return {
-			flow: 'paginated',
-			manager: 'default',
-			spread: 'none',
-			allowPopups: false,
-			allowScriptedContent: false,
-		} as const;
-	}, [readingMode]);
-
-	// Atualiza estilo do container quando o modo muda, sem depender de remount dos hooks
-	React.useEffect(() => {
-		try {
-			if (!renditionRef.current?.manager?.container?.style) return;
-			if (readingMode === 'scrolled') {
-				renditionRef.current.manager.container.style['scroll-behavior'] = 'smooth';
-			} else {
-				// Remove custom scroll-behavior em modo paginado
-				renditionRef.current.manager.container.style.removeProperty('scroll-behavior');
-			}
-		} catch { }
-	}, [readingMode]);
+React.useEffect(() => { applyThemeLocal(); }, [applyThemeLocal]);
+React.useEffect(() => { if (renditionRef.current) bindScrollBehavior(renditionRef.current); }, [bindScrollBehavior]);
 
 	return (
-		<div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+		<div className="h-screen flex flex-col">
 			{readerHeader}
 			{highlightMode && (
 				<div className="px-3 py-2 bg-amber-50 border-b border-amber-200 text-sm text-amber-800 flex items-center justify-between">
