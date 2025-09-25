@@ -163,6 +163,23 @@ export default function useHighlighting(params: Params): UseHighlightingReturn {
 			renditionRef.current?.annotations?.add?.('highlight', cfiRange, {}, () => {}, 'epubjs-hl', { fill: color, 'fill-opacity': 0.35 });
 			setHighlights((prev) => prev.concat([{ id, text, cfiRange, color }]));
 			setPendingUndo({ id, cfiRange });
+			try {
+				const timestamp = Date.now();
+				let locationInfo: any = null;
+				try { locationInfo = renditionRef.current?.currentLocation?.() || null; } catch {}
+				const debugInfo = {
+					id,
+					text,
+					textLength: text.length,
+					cfiRange,
+					color,
+					readingMode,
+					timestamp,
+					location: locationInfo,
+				};
+				try { console.groupCollapsed('[Highlight] Seleção salva'); console.log(debugInfo); console.groupEnd(); }
+				catch { try { console.log('[Highlight] Seleção salva', debugInfo); } catch {} }
+			} catch {}
 		} catch {}
 		// Clear selections inside iframes
 		try {
