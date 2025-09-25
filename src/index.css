@@ -1,0 +1,179 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Estilos customizados para o leitor de ebook */
+@layer components {
+  .ebook-reader {
+    @apply h-screen flex flex-col;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  .ebook-toolbar {
+    @apply bg-gray-100 p-2.5 border-b border-gray-300 flex flex-wrap gap-2.5 items-center;
+  }
+
+  .ebook-content {
+    @apply flex-1 overflow-hidden relative;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  .ebook-content .react-reader {
+    @apply h-full w-full;
+  }
+
+  .ebook-content .react-reader__reader {
+    @apply h-full w-full;
+  }
+
+  .ebook-reader-area {
+    @apply h-full w-full;
+  }
+
+  /* Temas */
+  .theme-black {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+  }
+
+  .theme-black * {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+  }
+
+  .theme-white {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .theme-white * {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .theme-yellow {
+    background-color: #ffff99 !important;
+    color: #000000 !important;
+  }
+
+  .theme-yellow * {
+    background-color: #ffff99 !important;
+    color: #000000 !important;
+  }
+
+  /* Controles */
+  .control-group {
+    @apply flex items-center gap-1.5;
+  }
+
+  .control-group label {
+    @apply text-xs font-bold;
+  }
+
+  .control-group select,
+  .control-group input {
+    @apply px-2 py-1 border border-gray-300 rounded text-xs;
+  }
+
+  .control-group button {
+    @apply px-3 py-1.5 border border-gray-300 rounded bg-white cursor-pointer text-xs hover:bg-gray-100;
+  }
+
+  .control-group button.active {
+    @apply bg-blue-600 text-white border-blue-600;
+  }
+
+  /* Lista de capítulos */
+  .chapters-panel {
+    @apply absolute top-0 -left-80 w-80 h-full bg-white border-r border-gray-300 transition-all duration-300 z-50 overflow-y-auto;
+  }
+
+  .chapters-panel.open {
+    @apply left-0;
+  }
+
+  .chapters-header {
+    @apply p-4 border-b border-gray-300 bg-gray-50 flex justify-between items-center;
+  }
+
+  .chapters-list {
+    @apply p-2.5;
+  }
+
+  .chapter-item {
+    @apply p-2.5 border-b border-gray-200 cursor-pointer hover:bg-gray-100;
+  }
+
+  .chapter-item.active {
+    @apply bg-blue-50 font-bold;
+  }
+
+  /* Lista de destaques */
+  .highlights-panel {
+    @apply absolute top-0 -right-80 w-80 h-full bg-white border-l border-gray-300 transition-all duration-300 z-50 overflow-y-auto;
+  }
+
+  .highlights-panel.open {
+    @apply right-0;
+  }
+
+  .highlights-header {
+    @apply p-4 border-b border-gray-300 bg-gray-50 flex justify-between items-center;
+  }
+
+  .highlights-list {
+    @apply p-2.5;
+  }
+
+  .highlight-item {
+    @apply p-2.5 border-b border-gray-200 mb-2.5 rounded;
+  }
+
+  .highlight-item .highlight-text {
+    @apply mb-2 text-sm leading-relaxed;
+  }
+
+  .highlight-item .highlight-actions {
+    @apply flex gap-2;
+  }
+
+  .highlight-item .highlight-actions button {
+    @apply px-2 py-1 text-xs border border-gray-300 rounded bg-white cursor-pointer hover:bg-gray-100;
+  }
+
+  .highlight-item .highlight-actions button.remove {
+    @apply text-red-600 border-red-600 hover:bg-red-600 hover:text-white;
+  }
+
+  /* Overlay para fechar painéis */
+  .overlay {
+    @apply fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 z-40;
+  }
+
+  /* Destaque de texto */
+  .highlighted-text {
+    @apply bg-yellow-300 py-0.5;
+  }
+}
+
+/* Responsividade */
+@layer utilities {
+  @media (max-width: 768px) {
+    .ebook-toolbar {
+      @apply flex-col items-stretch;
+    }
+    
+    .control-group {
+      @apply justify-between;
+    }
+    
+    .chapters-panel,
+    .highlights-panel {
+      @apply w-full -left-full right-auto;
+    }
+    
+    .highlights-panel.open {
+      @apply left-0 right-auto;
+    }
+  }
+}
