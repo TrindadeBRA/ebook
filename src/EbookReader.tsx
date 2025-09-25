@@ -6,6 +6,7 @@ import ReadingModeToggle, { ReadingMode } from './components/ReadingModeToggle';
 import ThemeToggle, { ThemeMode } from './components/ThemeToggle';
 import HighlightColorSelector from './components/HighlightColorSelector';
 import HighlightsList, { type HighlightItem } from './components/HighlightsList';
+import useHighlighting from './hooks/useHighlighting';
 
 const EbookReader: React.FC = () => {
 
@@ -16,15 +17,21 @@ const EbookReader: React.FC = () => {
 	const [themeMode, setThemeMode] = useState<ThemeMode>('light');
 	const renditionRef = useRef<any | null>(null);
 	const [highlightColor, setHighlightColor] = useState<string>('#ef4444');
-	const [highlights, setHighlights] = useState<HighlightItem[]>([]);
 	const [showHighlights, setShowHighlights] = useState<boolean>(false);
-	const [highlightMode, setHighlightMode] = useState<boolean>(false);
-	const [pendingUndo, setPendingUndo] = useState<{ id: string; cfiRange: string } | null>(null);
-	const toastTimeoutRef = useRef<number | null>(null);
-	const highlightModeRef = useRef<boolean>(false);
-	const highlightColorRef = useRef<string>(highlightColor);
-	const [pendingSelection, setPendingSelection] = useState<{ cfiRange: string; text: string } | null>(null);
-	const pendingSelectionRef = useRef<boolean>(false);
+
+	const {
+		highlightMode,
+		setHighlightMode,
+		highlights,
+		pendingSelection,
+		pendingUndo,
+		attachToRendition,
+		handleConfirmHighlight,
+		handleCancelPending,
+		handleUndoLastHighlight,
+		removeHighlight,
+		dismissUndo,
+	} = useHighlighting({ highlightColor, readingMode });
 
 	const handleLocationChanged = useCallback((epubcfi: string) => {
 		setLocation(epubcfi);
@@ -87,114 +94,18 @@ const EbookReader: React.FC = () => {
 			}
 		} catch { }
 
-		// Registrar seleção para destaques
-		const onSelected = (cfiRange: string, contents: any) => {
-			try {
-				if (!highlightModeRef.current) {
-					// Fora do modo destaque, não cria e não limpa a seleção
-					return;
-				}
-				const range = renditionRef.current?.getRange?.(cfiRange);
-				const selectedText = range ? String(range.toString()) : '';
-				setPendingSelection({ cfiRange, text: selectedText });
-			} catch { }
-		};
-
-		renditionRef.current?.on?.('selected', onSelected);
-		return () => {
-			try { renditionRef.current?.off?.('selected', onSelected); } catch { }
-		};
+		// Conecta listeners do hook
+		const detach = attachToRendition(rendition);
+		return detach;
 	}, [applyTheme, readingMode]);
 
 	React.useEffect(() => {
 		applyTheme();
 	}, [applyTheme]);
 
-	// Reaplica destaques quando muda modo/rendition
-	const reapplyHighlights = useCallback(() => {
-		if (!renditionRef.current) return;
-		try {
-			for (const h of highlights) {
-				renditionRef.current.annotations?.remove?.(h.cfiRange, 'highlight');
-				renditionRef.current.annotations?.add?.('highlight', h.cfiRange, {}, () => { }, 'epubjs-hl', { fill: h.color, 'fill-opacity': 0.35 });
-			}
-		} catch { }
-	}, [highlights]);
+	// Reapply é tratado dentro do hook
 
-	React.useEffect(() => {
-		reapplyHighlights();
-	}, [reapplyHighlights, readingMode]);
-
-	// Sincroniza refs para uso nos handlers
-	React.useEffect(() => { highlightModeRef.current = highlightMode; }, [highlightMode]);
-	React.useEffect(() => { highlightColorRef.current = highlightColor; }, [highlightColor]);
-
-	// Confirmar/Cancelar destaque a partir da seleção pendente
-	const handleConfirmHighlight = useCallback(() => {
-		if (!pendingSelection) return;
-		const { cfiRange, text } = pendingSelection;
-		const id = `${cfiRange}-${Date.now()}`;
-		const color = highlightColorRef.current;
-		try {
-			renditionRef.current?.annotations?.remove?.(cfiRange, 'highlight');
-			renditionRef.current?.annotations?.add?.('highlight', cfiRange, {}, () => { }, 'epubjs-hl', { fill: color, 'fill-opacity': 0.35 });
-			setHighlights((prev) => prev.concat([{ id, text, cfiRange, color }]));
-			setPendingUndo({ id, cfiRange });
-		} catch { }
-		// Limpa seleção visual em iframes exibidos
-		try {
-			const contents = renditionRef.current?.getContents?.() || [];
-			for (const c of contents) {
-				c?.window?.getSelection?.()?.removeAllRanges();
-			}
-		} catch { }
-		setPendingSelection(null);
-	}, [pendingSelection]);
-
-	const handleCancelPending = useCallback(() => {
-		setPendingSelection(null);
-	}, []);
-
-	// Mantém ref indicando se há modal de confirmação ativo
-	React.useEffect(() => { pendingSelectionRef.current = Boolean(pendingSelection); }, [pendingSelection]);
-
-	// Atalhos de teclado: prioriza modal (Enter confirma, Esc cancela)
-	React.useEffect(() => {
-		const onKeyDown = (e: KeyboardEvent) => {
-			if (pendingSelectionRef.current) {
-				if (e.key === 'Enter') { e.preventDefault(); handleConfirmHighlight(); return; }
-				if (e.key === 'Escape') { e.preventDefault(); handleCancelPending(); return; }
-			}
-			const isToggle = (e.ctrlKey || e.metaKey) && (e.key === 'h' || e.key === 'H');
-			if (isToggle) { e.preventDefault(); setHighlightMode((v) => !v); return; }
-			if (e.key === 'Escape' && highlightModeRef.current) { e.preventDefault(); setHighlightMode(false); }
-		};
-		window.addEventListener('keydown', onKeyDown);
-		return () => window.removeEventListener('keydown', onKeyDown);
-	}, [handleConfirmHighlight, handleCancelPending]);
-
-	// Toast temporário para "Desfazer"
-	const handleUndoLastHighlight = useCallback(() => {
-		if (!pendingUndo) return;
-		try { renditionRef.current?.annotations?.remove?.(pendingUndo.cfiRange, 'highlight'); } catch { }
-		setHighlights((prev) => prev.filter((h) => h.id !== pendingUndo.id));
-		setPendingUndo(null);
-	}, [pendingUndo]);
-
-	React.useEffect(() => {
-		if (!pendingUndo) return;
-		if (toastTimeoutRef.current) {
-			window.clearTimeout(toastTimeoutRef.current);
-			toastTimeoutRef.current = null;
-		}
-		toastTimeoutRef.current = window.setTimeout(() => setPendingUndo(null), 4000);
-		return () => {
-			if (toastTimeoutRef.current) {
-				window.clearTimeout(toastTimeoutRef.current);
-				toastTimeoutRef.current = null;
-			}
-		};
-	}, [pendingUndo]);
+	// Atalhos, undo e reapply são tratados no hook
 
 	const epubOptions = useMemo(() => {
 		
@@ -251,11 +162,7 @@ const EbookReader: React.FC = () => {
 					<HighlightsList
 						items={highlights}
 						onShow={(cfi) => renditionRef.current?.display?.(cfi)}
-						onRemove={(id, cfi) => {
-							try { renditionRef.current?.annotations?.remove?.(cfi, 'highlight'); } catch { }
-							setHighlights((prev) => prev.filter((h) => h.id !== id));
-							if (pendingUndo?.id === id) setPendingUndo(null);
-						}}
+					onRemove={(id, cfi) => removeHighlight(id, cfi)}
 					/>
 				</div>
 			)}
@@ -305,7 +212,7 @@ const EbookReader: React.FC = () => {
 				<div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-3 py-2 rounded shadow text-sm flex items-center gap-3">
 					<span>Destaque criado.</span>
 					<button className="underline decoration-2 underline-offset-2" onClick={handleUndoLastHighlight}>Desfazer</button>
-					<button className="opacity-70 hover:opacity-100" onClick={() => setPendingUndo(null)} aria-label="Fechar">×</button>
+					<button className="opacity-70 hover:opacity-100" onClick={dismissUndo} aria-label="Fechar">×</button>
 				</div>
 			)}
 		</div>
