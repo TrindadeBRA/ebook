@@ -18,7 +18,7 @@ type UseHighlightingReturn = {
 	highlights: HighlightItem[];
 	pendingSelection: { cfiRange: string; text: string } | null;
 	pendingUndo: { id: string; cfiRange: string } | null;
-	attachToRendition: (rendition: any) => void;
+	attachToRendition: (rendition: any) => () => void;
 	handleConfirmHighlight: () => void;
 	handleCancelPending: () => void;
 	handleUndoLastHighlight: () => void;

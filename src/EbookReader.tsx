@@ -12,6 +12,7 @@ import useReadingMode from './hooks/useReadingMode';
 import useReaderLocation from './hooks/useReaderLocation';
 import useHighlightSettings from './hooks/useHighlightSettings';
 import useRenditionBinder from './hooks/useRenditionBinder';
+import useReadingProgress from './hooks/useReadingProgress';
 
 type Props = {
 	bookUrl: string;
@@ -26,6 +27,13 @@ const EbookReader: React.FC<Props> = ({ bookUrl, bookTitle = 'EPUB', onChangeBoo
 	const { readingMode, setReadingMode, epubOptions, bindScrollBehavior } = useReadingMode();
 	const { renditionRef, bindAll } = useRenditionBinder();
 	const { highlightColor, setHighlightColor, showHighlights, setShowHighlights } = useHighlightSettings();
+	const { attachToRendition: attachReadingProgress } = useReadingProgress({
+		step: 5,
+		onProgress: (percent) => {
+			// eslint-disable-next-line no-console
+			console.log(`[Leitura] ${percent}%`);
+		},
+	});
 
 	const {
 		highlightMode,
@@ -106,9 +114,13 @@ const EbookReader: React.FC<Props> = ({ bookUrl, bookTitle = 'EPUB', onChangeBoo
 			bindScrollBehavior(renditionRef.current);
 		} catch { }
 
-		const detach = attachToRendition(rendition);
-		return detach;
-	}, [bindTheme, bindScrollBehavior, bindAll, readingMode]);
+		const detachHighlights = attachToRendition(rendition);
+		const detachProgress = attachReadingProgress(rendition);
+		return () => {
+			try { detachHighlights?.(); } catch {}
+			try { detachProgress?.(); } catch {}
+		};
+	}, [bindTheme, bindScrollBehavior, bindAll, readingMode, attachToRendition, attachReadingProgress]);
 
 React.useEffect(() => { applyThemeLocal(); }, [applyThemeLocal]);
 React.useEffect(() => { if (renditionRef.current) bindScrollBehavior(renditionRef.current); }, [bindScrollBehavior]);
