@@ -8,15 +8,21 @@ import HighlightColorSelector from './components/HighlightColorSelector';
 import HighlightsList, { type HighlightItem } from './components/HighlightsList';
 
 const EbookReader: React.FC = () => {
+	
 	const [location, setLocation] = useState<string | number>(0);
 	const [fontFamily, setFontFamily] = useState<string>('inherit');
 	const [fontSize, setFontSize] = useState<string>('16px');
 	const [readingMode, setReadingMode] = useState<ReadingMode>('paginated');
 	const [themeMode, setThemeMode] = useState<ThemeMode>('light');
 	const renditionRef = useRef<any | null>(null);
-const [highlightColor, setHighlightColor] = useState<string>('#ef4444');
-const [highlights, setHighlights] = useState<HighlightItem[]>([]);
-const [showHighlights, setShowHighlights] = useState<boolean>(false);
+	const [highlightColor, setHighlightColor] = useState<string>('#ef4444');
+	const [highlights, setHighlights] = useState<HighlightItem[]>([]);
+	const [showHighlights, setShowHighlights] = useState<boolean>(false);
+	const [highlightMode, setHighlightMode] = useState<boolean>(false);
+	const [pendingUndo, setPendingUndo] = useState<{ id: string; cfiRange: string } | null>(null);
+	const toastTimeoutRef = useRef<number | null>(null);
+	const highlightModeRef = useRef<boolean>(false);
+	const highlightColorRef = useRef<string>(highlightColor);
 
 	const handleLocationChanged = useCallback((epubcfi: string) => {
 		setLocation(epubcfi);
@@ -32,6 +38,14 @@ const [showHighlights, setShowHighlights] = useState<boolean>(false);
 				<span className="text-slate-600 text-xs">Destaque:</span>
 				<HighlightColorSelector value={highlightColor} onChange={setHighlightColor} />
 				<button
+					className={`px-3 py-1.5 rounded-md border text-xs leading-none ${highlightMode ? 'bg-amber-200 border-amber-400' : 'bg-slate-50 border-slate-300 hover:bg-slate-100'}`}
+					onClick={() => setHighlightMode((v) => !v)}
+					aria-pressed={highlightMode ? 'true' : 'false'}
+					title="Ctrl+H"
+				>
+					{highlightMode ? 'Finalizar Destaque' : 'Ativar Destaque'}
+				</button>
+				<button
 					className="px-3 py-1.5 rounded-md border text-xs leading-none bg-slate-50 border-slate-300 hover:bg-slate-100"
 					onClick={() => setShowHighlights((v) => !v)}
 				>
@@ -39,7 +53,7 @@ const [showHighlights, setShowHighlights] = useState<boolean>(false);
 				</button>
 			</div>
 		</div>
-	), [readingMode, themeMode, fontFamily, fontSize, highlightColor, highlights.length]);
+	), [readingMode, themeMode, fontFamily, fontSize, highlightColor, highlights.length, highlightMode]);
 
 	const applyTheme = useCallback(() => {
 		if (!renditionRef.current) return;
@@ -69,35 +83,43 @@ const [showHighlights, setShowHighlights] = useState<boolean>(false);
 			if (readingMode === 'scrolled' && renditionRef.current?.manager?.container?.style) {
 				renditionRef.current.manager.container.style['scroll-behavior'] = 'smooth';
 			}
-		} catch {}
+		} catch { }
 
 		// Registrar seleção para destaques
 		const onSelected = (cfiRange: string, contents: any) => {
 			try {
+				if (!highlightModeRef.current) {
+					// Fora do modo destaque, ignore a criação
+					const selIgnore = contents?.window?.getSelection?.();
+					selIgnore?.removeAllRanges();
+					return;
+				}
 				const range = renditionRef.current?.getRange?.(cfiRange);
 				const selectedText = range ? String(range.toString()) : '';
 				const id = `${cfiRange}-${Date.now()}`;
+				const color = highlightColorRef.current;
 				// Visual no EPUB
 				renditionRef.current?.annotations?.remove?.(cfiRange, 'highlight');
 				renditionRef.current?.annotations?.add?.(
 					'highlight',
 					cfiRange,
 					{},
-					() => {},
+					() => { },
 					'epubjs-hl',
-					{ fill: highlightColor, 'fill-opacity': 0.35 }
+					{ fill: color, 'fill-opacity': 0.35 }
 				);
-				setHighlights((prev) => prev.concat([{ id, text: selectedText, cfiRange, color: highlightColor }]));
+				setHighlights((prev) => prev.concat([{ id, text: selectedText, cfiRange, color }]));
+				setPendingUndo({ id, cfiRange });
 				const sel = contents?.window?.getSelection?.();
 				sel?.removeAllRanges();
-			} catch {}
+			} catch { }
 		};
 
 		renditionRef.current?.on?.('selected', onSelected);
 		return () => {
-			try { renditionRef.current?.off?.('selected', onSelected); } catch {}
+			try { renditionRef.current?.off?.('selected', onSelected); } catch { }
 		};
-	}, [applyTheme, readingMode, highlightColor]);
+	}, [applyTheme, readingMode]);
 
 	React.useEffect(() => {
 		applyTheme();
@@ -109,14 +131,59 @@ const [showHighlights, setShowHighlights] = useState<boolean>(false);
 		try {
 			for (const h of highlights) {
 				renditionRef.current.annotations?.remove?.(h.cfiRange, 'highlight');
-				renditionRef.current.annotations?.add?.('highlight', h.cfiRange, {}, () => {}, 'epubjs-hl', { fill: h.color, 'fill-opacity': 0.35 });
+				renditionRef.current.annotations?.add?.('highlight', h.cfiRange, {}, () => { }, 'epubjs-hl', { fill: h.color, 'fill-opacity': 0.35 });
 			}
-		} catch {}
+		} catch { }
 	}, [highlights]);
 
 	React.useEffect(() => {
 		reapplyHighlights();
 	}, [reapplyHighlights, readingMode]);
+
+	// Sincroniza refs para uso nos handlers
+	React.useEffect(() => { highlightModeRef.current = highlightMode; }, [highlightMode]);
+	React.useEffect(() => { highlightColorRef.current = highlightColor; }, [highlightColor]);
+
+	// Atalhos de teclado: Ctrl+H alterna, Esc sai
+	React.useEffect(() => {
+		const onKeyDown = (e: KeyboardEvent) => {
+			const isToggle = (e.ctrlKey || e.metaKey) && (e.key === 'h' || e.key === 'H');
+			if (isToggle) {
+				e.preventDefault();
+				setHighlightMode((v) => !v);
+				return;
+			}
+			if (e.key === 'Escape' && highlightModeRef.current) {
+				e.preventDefault();
+				setHighlightMode(false);
+			}
+		};
+		window.addEventListener('keydown', onKeyDown);
+		return () => window.removeEventListener('keydown', onKeyDown);
+	}, []);
+
+	// Toast temporário para "Desfazer"
+	const handleUndoLastHighlight = useCallback(() => {
+		if (!pendingUndo) return;
+		try { renditionRef.current?.annotations?.remove?.(pendingUndo.cfiRange, 'highlight'); } catch { }
+		setHighlights((prev) => prev.filter((h) => h.id !== pendingUndo.id));
+		setPendingUndo(null);
+	}, [pendingUndo]);
+
+	React.useEffect(() => {
+		if (!pendingUndo) return;
+		if (toastTimeoutRef.current) {
+			window.clearTimeout(toastTimeoutRef.current);
+			toastTimeoutRef.current = null;
+		}
+		toastTimeoutRef.current = window.setTimeout(() => setPendingUndo(null), 4000);
+		return () => {
+			if (toastTimeoutRef.current) {
+				window.clearTimeout(toastTimeoutRef.current);
+				toastTimeoutRef.current = null;
+			}
+		};
+	}, [pendingUndo]);
 
 	const epubOptions = useMemo(() => {
 		if (readingMode === 'scrolled') {
@@ -147,20 +214,35 @@ const [showHighlights, setShowHighlights] = useState<boolean>(false);
 				// Remove custom scroll-behavior em modo paginado
 				renditionRef.current.manager.container.style.removeProperty('scroll-behavior');
 			}
-		} catch {}
+		} catch { }
 	}, [readingMode]);
 
 	return (
 		<div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
 			{readerHeader}
+			{highlightMode && (
+				<div className="px-3 py-2 bg-amber-50 border-b border-amber-200 text-sm text-amber-800 flex items-center justify-between">
+					<div className="flex items-center gap-3">
+						<span className="font-medium">Modo Destaque ativo</span>
+						<span className="hidden sm:inline">Selecione um trecho para criar um destaque.</span>
+						<span className="inline-flex items-center gap-1 text-xs text-amber-700">
+							Cor atual:
+							<span className="inline-block size-3 rounded-full border" style={{ backgroundColor: highlightColor }} />
+						</span>
+						<span className="text-xs text-amber-700">(Esc sai • Ctrl+H alterna)</span>
+					</div>
+					<button className="text-xs underline hover:no-underline" onClick={() => setHighlightMode(false)}>Sair</button>
+				</div>
+			)}
 			{showHighlights && (
 				<div className="px-3 pb-2">
 					<HighlightsList
 						items={highlights}
 						onShow={(cfi) => renditionRef.current?.display?.(cfi)}
 						onRemove={(id, cfi) => {
-							try { renditionRef.current?.annotations?.remove?.(cfi, 'highlight'); } catch {}
+							try { renditionRef.current?.annotations?.remove?.(cfi, 'highlight'); } catch { }
 							setHighlights((prev) => prev.filter((h) => h.id !== id));
+							if (pendingUndo?.id === id) setPendingUndo(null);
 						}}
 					/>
 				</div>
@@ -176,6 +258,13 @@ const [showHighlights, setShowHighlights] = useState<boolean>(false);
 					epubOptions={epubOptions as any}
 				/>
 			</div>
+			{pendingUndo && (
+				<div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-3 py-2 rounded shadow text-sm flex items-center gap-3">
+					<span>Destaque criado.</span>
+					<button className="underline decoration-2 underline-offset-2" onClick={handleUndoLastHighlight}>Desfazer</button>
+					<button className="opacity-70 hover:opacity-100" onClick={() => setPendingUndo(null)} aria-label="Fechar">×</button>
+				</div>
+			)}
 		</div>
 	);
 };
