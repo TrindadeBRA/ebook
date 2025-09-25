@@ -23,6 +23,8 @@ const EbookReader: React.FC = () => {
 	const toastTimeoutRef = useRef<number | null>(null);
 	const highlightModeRef = useRef<boolean>(false);
 	const highlightColorRef = useRef<string>(highlightColor);
+const [pendingSelection, setPendingSelection] = useState<{ cfiRange: string; text: string } | null>(null);
+const pendingSelectionRef = useRef<boolean>(false);
 
 	const handleLocationChanged = useCallback((epubcfi: string) => {
 		setLocation(epubcfi);
@@ -89,29 +91,12 @@ const EbookReader: React.FC = () => {
 		const onSelected = (cfiRange: string, contents: any) => {
 			try {
 				if (!highlightModeRef.current) {
-					// Fora do modo destaque, ignore a criação
-					const selIgnore = contents?.window?.getSelection?.();
-					selIgnore?.removeAllRanges();
+					// Fora do modo destaque, não cria e não limpa a seleção
 					return;
 				}
 				const range = renditionRef.current?.getRange?.(cfiRange);
 				const selectedText = range ? String(range.toString()) : '';
-				const id = `${cfiRange}-${Date.now()}`;
-				const color = highlightColorRef.current;
-				// Visual no EPUB
-				renditionRef.current?.annotations?.remove?.(cfiRange, 'highlight');
-				renditionRef.current?.annotations?.add?.(
-					'highlight',
-					cfiRange,
-					{},
-					() => { },
-					'epubjs-hl',
-					{ fill: color, 'fill-opacity': 0.35 }
-				);
-				setHighlights((prev) => prev.concat([{ id, text: selectedText, cfiRange, color }]));
-				setPendingUndo({ id, cfiRange });
-				const sel = contents?.window?.getSelection?.();
-				sel?.removeAllRanges();
+				setPendingSelection({ cfiRange, text: selectedText });
 			} catch { }
 		};
 
@@ -144,23 +129,49 @@ const EbookReader: React.FC = () => {
 	React.useEffect(() => { highlightModeRef.current = highlightMode; }, [highlightMode]);
 	React.useEffect(() => { highlightColorRef.current = highlightColor; }, [highlightColor]);
 
-	// Atalhos de teclado: Ctrl+H alterna, Esc sai
+	// Confirmar/Cancelar destaque a partir da seleção pendente
+	const handleConfirmHighlight = useCallback(() => {
+		if (!pendingSelection) return;
+		const { cfiRange, text } = pendingSelection;
+		const id = `${cfiRange}-${Date.now()}`;
+		const color = highlightColorRef.current;
+		try {
+			renditionRef.current?.annotations?.remove?.(cfiRange, 'highlight');
+			renditionRef.current?.annotations?.add?.('highlight', cfiRange, {}, () => { }, 'epubjs-hl', { fill: color, 'fill-opacity': 0.35 });
+			setHighlights((prev) => prev.concat([{ id, text, cfiRange, color }]));
+			setPendingUndo({ id, cfiRange });
+		} catch { }
+		// Limpa seleção visual em iframes exibidos
+		try {
+			const contents = renditionRef.current?.getContents?.() || [];
+			for (const c of contents) {
+				c?.window?.getSelection?.()?.removeAllRanges();
+			}
+		} catch { }
+		setPendingSelection(null);
+	}, [pendingSelection]);
+
+	const handleCancelPending = useCallback(() => {
+		setPendingSelection(null);
+	}, []);
+
+	// Mantém ref indicando se há modal de confirmação ativo
+	React.useEffect(() => { pendingSelectionRef.current = Boolean(pendingSelection); }, [pendingSelection]);
+
+	// Atalhos de teclado: prioriza modal (Enter confirma, Esc cancela)
 	React.useEffect(() => {
 		const onKeyDown = (e: KeyboardEvent) => {
+			if (pendingSelectionRef.current) {
+				if (e.key === 'Enter') { e.preventDefault(); handleConfirmHighlight(); return; }
+				if (e.key === 'Escape') { e.preventDefault(); handleCancelPending(); return; }
+			}
 			const isToggle = (e.ctrlKey || e.metaKey) && (e.key === 'h' || e.key === 'H');
-			if (isToggle) {
-				e.preventDefault();
-				setHighlightMode((v) => !v);
-				return;
-			}
-			if (e.key === 'Escape' && highlightModeRef.current) {
-				e.preventDefault();
-				setHighlightMode(false);
-			}
+			if (isToggle) { e.preventDefault(); setHighlightMode((v) => !v); return; }
+			if (e.key === 'Escape' && highlightModeRef.current) { e.preventDefault(); setHighlightMode(false); }
 		};
 		window.addEventListener('keydown', onKeyDown);
 		return () => window.removeEventListener('keydown', onKeyDown);
-	}, []);
+	}, [handleConfirmHighlight, handleCancelPending]);
 
 	// Toast temporário para "Desfazer"
 	const handleUndoLastHighlight = useCallback(() => {
@@ -258,6 +269,37 @@ const EbookReader: React.FC = () => {
 					epubOptions={epubOptions as any}
 				/>
 			</div>
+			{pendingSelection && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center">
+					<div className="absolute inset-0 bg-black/50" onClick={handleCancelPending} />
+					<div className="relative mx-4 w-full max-w-md rounded-2xl bg-white shadow-xl">
+						<div className="p-6 text-center">
+							<div className="mx-auto mb-3 grid place-items-center size-12 rounded-full bg-amber-100">
+								<svg viewBox="0 0 24 24" fill="currentColor" className="text-amber-600 size-7" aria-hidden="true">
+									<path d="M12 2a10 10 0 1 0 10 10A10.011 10.011 0 0 0 12 2Zm1 14h-2v-2h2Zm0-4h-2V6h2Z" />
+								</svg>
+							</div>
+							<h3 className="text-lg font-semibold">Criar destaque?</h3>
+							<p className="mt-1 text-sm text-slate-600 line-clamp-3" title={pendingSelection.text}>
+								“{pendingSelection.text || 'trecho selecionado'}”
+							</p>
+							<div className="mt-3 flex items-center justify-center gap-2 text-xs text-slate-600">
+								<span>Cor atual</span>
+								<span className="inline-block size-3 rounded-full border" style={{ backgroundColor: highlightColor }} />
+								<span className="font-mono">{highlightColor}</span>
+							</div>
+							<div className="mt-5 space-y-2">
+								<button onClick={handleConfirmHighlight} className="w-full rounded-full bg-orange-500 px-4 py-3 text-white font-medium hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-300">
+									Sim, criar destaque
+								</button>
+								<button onClick={handleCancelPending} className="w-full rounded-full px-4 py-2 text-slate-700 hover:bg-slate-100">
+									Cancelar
+								</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			)}
 			{pendingUndo && (
 				<div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-3 py-2 rounded shadow text-sm flex items-center gap-3">
 					<span>Destaque criado.</span>
