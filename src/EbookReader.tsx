@@ -8,7 +8,7 @@ import HighlightColorSelector from './components/HighlightColorSelector';
 import HighlightsList, { type HighlightItem } from './components/HighlightsList';
 
 const EbookReader: React.FC = () => {
-	
+
 	const [location, setLocation] = useState<string | number>(0);
 	const [fontFamily, setFontFamily] = useState<string>('inherit');
 	const [fontSize, setFontSize] = useState<string>('16px');
@@ -23,15 +23,15 @@ const EbookReader: React.FC = () => {
 	const toastTimeoutRef = useRef<number | null>(null);
 	const highlightModeRef = useRef<boolean>(false);
 	const highlightColorRef = useRef<string>(highlightColor);
-const [pendingSelection, setPendingSelection] = useState<{ cfiRange: string; text: string } | null>(null);
-const pendingSelectionRef = useRef<boolean>(false);
+	const [pendingSelection, setPendingSelection] = useState<{ cfiRange: string; text: string } | null>(null);
+	const pendingSelectionRef = useRef<boolean>(false);
 
 	const handleLocationChanged = useCallback((epubcfi: string) => {
 		setLocation(epubcfi);
 	}, []);
 
 	const readerHeader = useMemo(() => (
-		<div style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '8px 12px' }}>
+		<div className="flex gap-2 items-center p-2">
 			<ReadingModeToggle mode={readingMode} onChange={setReadingMode} />
 			<ThemeToggle value={themeMode} onChange={setThemeMode} />
 			<FontFamilySelector value={fontFamily} onChange={setFontFamily} />
@@ -197,6 +197,7 @@ const pendingSelectionRef = useRef<boolean>(false);
 	}, [pendingUndo]);
 
 	const epubOptions = useMemo(() => {
+		
 		if (readingMode === 'scrolled') {
 			return {
 				flow: 'scrolled',
