@@ -10,7 +10,7 @@ type Props = {
 const ToolbarDesktop: React.FC<Props> = ({ left, center, right, className = '' }) => {
     return (
         <div className="hidden sm:block w-full border-b border-slate-200 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60">
-            <div className="mx-auto max-w-5xl px-3">
+            <div className="mx-auto px-3">
                 <div className={`flex items-center gap-2 py-2 ${className}`}>
                     <div className="flex items-center gap-2">
                         {left}

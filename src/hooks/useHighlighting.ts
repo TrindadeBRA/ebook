@@ -57,7 +57,7 @@ export default function useHighlighting(params: Params): UseHighlightingReturn {
 
 		const attachPointerHandlers = (contents: any) => {
 			if (!contents?.document) return;
-			const handlePointerUp = () => {
+			const processSelection = () => {
 				try {
 					if (!highlightModeRef.current) return;
 					const selection = contents?.window?.getSelection?.();
@@ -76,11 +76,17 @@ export default function useHighlighting(params: Params): UseHighlightingReturn {
 					}, SELECTION_DELAY_MS);
 				} catch {}
 			};
+			const handlePointerUp = () => { processSelection(); };
+			const handleSelectionChange = () => { processSelection(); };
 			contents.document.addEventListener('mouseup', handlePointerUp);
 			contents.document.addEventListener('touchend', handlePointerUp, { passive: true });
+			try { contents.document.addEventListener('pointerup', handlePointerUp); } catch {}
+			try { contents.document.addEventListener('selectionchange', handleSelectionChange); } catch {}
 			contentCleanupRef.current.push(() => {
 				try { contents.document.removeEventListener('mouseup', handlePointerUp); } catch {}
 				try { contents.document.removeEventListener('touchend', handlePointerUp); } catch {}
+				try { contents.document.removeEventListener('pointerup', handlePointerUp); } catch {}
+				try { contents.document.removeEventListener('selectionchange', handleSelectionChange); } catch {}
 			});
 		};
 
@@ -108,9 +114,30 @@ export default function useHighlighting(params: Params): UseHighlightingReturn {
 		const onRendered = () => { attachToAllContents(); reapplyAllHighlights(); };
 		renditionRef.current?.on?.('rendered', onRendered);
 
+		// Evento nativo do ePub.js ao concluir uma seleção (útil no mobile)
+		const onSelected = (cfiRange: string, contents: any) => {
+			try {
+				if (!highlightModeRef.current) return;
+				let text = '';
+				try {
+					const range = contents?.range?.(cfiRange);
+					text = String(range?.toString?.() || '');
+				} catch {}
+				const normalized = text.trim();
+				if (!normalized || normalized.length < SELECTION_MIN_CHARS) return;
+				if (selectionDelayRef.current) { window.clearTimeout(selectionDelayRef.current); selectionDelayRef.current = null; }
+				selectionDelayRef.current = window.setTimeout(() => {
+					if (!highlightModeRef.current) return;
+					setPendingSelection({ cfiRange, text: normalized });
+				}, SELECTION_DELAY_MS);
+			} catch {}
+		};
+		try { renditionRef.current?.on?.('selected', onSelected); } catch {}
+
 		return () => {
 			if (selectionDelayRef.current) { window.clearTimeout(selectionDelayRef.current); selectionDelayRef.current = null; }
 			try { renditionRef.current?.off?.('rendered', onRendered); } catch {}
+			try { renditionRef.current?.off?.('selected', onSelected); } catch {}
 			detachAllContentListeners();
 		};
 	}, [highlights]);
