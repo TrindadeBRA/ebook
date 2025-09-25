@@ -13,7 +13,13 @@ import useReaderLocation from './hooks/useReaderLocation';
 import useHighlightSettings from './hooks/useHighlightSettings';
 import useRenditionBinder from './hooks/useRenditionBinder';
 
-const EbookReader: React.FC = () => {
+type Props = {
+	bookUrl: string;
+	bookTitle?: string;
+	onChangeBook?: () => void;
+};
+
+const EbookReader: React.FC<Props> = ({ bookUrl, bookTitle = 'EPUB', onChangeBook }) => {
 
 	const { location, setLocation, handleLocationChanged } = useReaderLocation();
 	const { fontFamily, setFontFamily, fontSize, setFontSize, themeMode, setThemeMode, bindToRendition: bindTheme, applyTheme } = useReaderTheme();
@@ -41,6 +47,17 @@ const EbookReader: React.FC = () => {
 			<ThemeToggle value={themeMode} onChange={setThemeMode} />
 			<FontFamilySelector value={fontFamily} onChange={setFontFamily} />
 			<FontSizeSelector value={fontSize} onChange={setFontSize} />
+			<div className="ml-auto inline-flex items-center gap-2">
+				<span className="text-slate-600 text-xs">{bookTitle}</span>
+				{onChangeBook && (
+					<button
+						className="px-3 py-1.5 rounded-md border text-xs leading-none bg-slate-50 border-slate-300 hover:bg-slate-100"
+						onClick={onChangeBook}
+					>
+						Trocar livro
+					</button>
+				)}
+			</div>
 			<div className="inline-flex items-center gap-2">
 				<span className="text-slate-600 text-xs">Destaque:</span>
 				<HighlightColorSelector value={highlightColor} onChange={setHighlightColor} />
@@ -60,7 +77,7 @@ const EbookReader: React.FC = () => {
 				</button>
 			</div>
 		</div>
-	), [readingMode, themeMode, fontFamily, fontSize, highlightColor, highlights.length, highlightMode]);
+	), [readingMode, themeMode, fontFamily, fontSize, highlightColor, highlights.length, highlightMode, bookTitle, onChangeBook]);
 
 	const applyThemeLocal = useCallback(() => { applyTheme(); }, [applyTheme]);
 
@@ -106,9 +123,9 @@ React.useEffect(() => { if (renditionRef.current) bindScrollBehavior(renditionRe
 			)}
 			<div style={{ flex: 1 }}>
 				<ReactReader
-					key={`reader-${readingMode}`}
-					title="Demo EPUB"
-					url="/asset/alice.epub"
+					key={`reader-${readingMode}-${bookUrl}`}
+					title={bookTitle}
+					url={bookUrl}
 					location={location}
 					locationChanged={handleLocationChanged}
 					getRendition={handleGetRendition}
