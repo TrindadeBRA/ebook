@@ -10,7 +10,7 @@ const DEFAULT_COLORS = ['#ef4444', '#f43f5e', '#f59e0b', '#10b981', '#3b82f6', '
 
 const HighlightColorSelector: React.FC<Props> = ({ value, onChange, colors = DEFAULT_COLORS }) => {
 	return (
-		<div className="flex items-center gap-2 flex-wrap">
+		<div className="flex flex-row items-center gap-2 flex-wrap justify-center w-[300px]">
 			{colors.map((c) => (
 				<button
 					key={c}

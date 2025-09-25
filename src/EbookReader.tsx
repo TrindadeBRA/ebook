@@ -6,6 +6,8 @@ import ReadingModeToggle from './components/ReadingModeToggle';
 import ThemeToggle from './components/ThemeToggle';
 import HighlightColorSelector from './components/HighlightColorSelector';
 import HighlightsList from './components/HighlightsList';
+import ToolbarDesktop from './components/ToolbarDesktop';
+import ToolbarMobile from './components/ToolbarMobile';
 import useHighlighting from './hooks/useHighlighting';
 import useReaderTheme from './hooks/useReaderTheme';
 import useReadingMode from './hooks/useReadingMode';
@@ -49,24 +51,36 @@ const EbookReader: React.FC<Props> = ({ bookUrl, bookTitle = 'EPUB', onChangeBoo
 		dismissUndo,
 	} = useHighlighting({ highlightColor, readingMode });
 
-	const readerHeader = useMemo(() => (
-		<div className="flex gap-2 items-center p-2">
+	const leftControls = (
+		<>
 			<ReadingModeToggle mode={readingMode} onChange={setReadingMode} />
 			<ThemeToggle value={themeMode} onChange={setThemeMode} />
+		</>
+	);
+
+	const centerControls = (
+		<>
 			<FontFamilySelector value={fontFamily} onChange={setFontFamily} />
 			<FontSizeSelector value={fontSize} onChange={setFontSize} />
-			<div className="ml-auto inline-flex items-center gap-2">
-				<span className="text-slate-600 text-xs">{bookTitle}</span>
-				{onChangeBook && (
-					<button
-						className="px-3 py-1.5 rounded-md border text-xs leading-none bg-slate-50 border-slate-300 hover:bg-slate-100"
-						onClick={onChangeBook}
-					>
-						Trocar livro
-					</button>
-				)}
+		</>
+	);
+
+	const rightControls = (
+		<div className="flex flex-row items-center gap-8">
+			<div className="inline-flex items-center gap-2 whitespace-nowrap">
+				<div className="flex flex-row items-center gap-2">
+					<span className="text-slate-600 text-xs">{bookTitle}</span>
+					{onChangeBook && (
+						<button
+							className="px-3 py-1.5 rounded-md border text-xs leading-none bg-slate-50 border-slate-300 hover:bg-slate-100 shrink-0"
+							onClick={onChangeBook}
+						>
+							Trocar livro
+						</button>
+					)}
+				</div>
 			</div>
-			<div className="inline-flex items-center gap-2">
+			<div className="flex flex-row items-center gap-2">
 				<span className="text-slate-600 text-xs">Destaque:</span>
 				<HighlightColorSelector value={highlightColor} onChange={setHighlightColor} />
 				<button
@@ -103,7 +117,79 @@ const EbookReader: React.FC<Props> = ({ bookUrl, bookTitle = 'EPUB', onChangeBoo
 				)}
 			</div>
 		</div>
-	), [readingMode, themeMode, fontFamily, fontSize, highlightColor, highlights.length, highlightMode, bookTitle, onChangeBook]);
+	);
+
+	const mobilePanelContent = (
+		<>
+			<div className="flex flex-col gap-2">
+				<span className="text-slate-600 text-xs">Modo</span>
+				{leftControls}
+			</div>
+			<div className="flex flex-col gap-2">
+				<span className="text-slate-600 text-xs">Aparência</span>
+				{centerControls}
+			</div>
+			<div className="flex flex-col gap-2">
+				<span className="text-slate-600 text-xs">Livro</span>
+				<div className="inline-flex items-center gap-2 whitespace-nowrap">
+					<span className="text-slate-600 text-xs">{bookTitle}</span>
+					{onChangeBook && (
+						<button
+							className="px-3 py-1.5 rounded-md border text-xs leading-none bg-slate-50 border-slate-300 hover:bg-slate-100 shrink-0"
+							onClick={onChangeBook}
+						>
+							Trocar livro
+						</button>
+					)}
+				</div>
+			</div>
+			<div className="flex flex-col gap-2">
+				<span className="text-slate-600 text-xs">Destaques</span>
+				<div className="flex items-center gap-2">
+					<HighlightColorSelector value={highlightColor} onChange={setHighlightColor} />
+					<button
+						className={`px-3 py-1.5 rounded-md border text-xs leading-none ${highlightMode ? 'bg-amber-200 border-amber-400' : 'bg-slate-50 border-slate-300 hover:bg-slate-100'}`}
+						onClick={() => setHighlightMode((v) => !v)}
+						aria-pressed={highlightMode ? 'true' : 'false'}
+						title="Ctrl+H"
+					>
+						{highlightMode ? 'Finalizar Destaque' : 'Ativar Destaque'}
+					</button>
+					<button
+						className="px-3 py-1.5 rounded-md border text-xs leading-none bg-slate-50 border-slate-300 hover:bg-slate-100"
+						onClick={() => setShowHighlights((v) => !v)}
+					>
+						Destaques ({highlights.length})
+					</button>
+					{readingMode === 'paginated' && (
+						<div className="ml-2 inline-flex items-center gap-1">
+							<button
+								className="px-3 py-1.5 rounded-md border text-xs leading-none bg-slate-50 border-slate-300 hover:bg-slate-100"
+								onClick={() => renditionRef.current?.prev?.()}
+								aria-label="Página anterior"
+							>
+								Anterior
+							</button>
+							<button
+								className="px-3 py-1.5 rounded-md border text-xs leading-none bg-slate-50 border-slate-300 hover:bg-slate-100"
+								onClick={() => renditionRef.current?.next?.()}
+								aria-label="Próxima página"
+							>
+								Próxima
+							</button>
+						</div>
+					)}
+				</div>
+			</div>
+		</>
+	);
+
+	const readerHeader = useMemo(() => (
+		<>
+			<ToolbarDesktop left={leftControls} center={centerControls} right={rightControls} />
+			<ToolbarMobile content={mobilePanelContent} />
+		</>
+	), [readingMode, themeMode, fontFamily, fontSize, highlightColor, highlights.length, highlightMode, bookTitle, onChangeBook, setReadingMode, setThemeMode, setFontFamily, setFontSize, setHighlightMode, setShowHighlights]);
 
 	const applyThemeLocal = useCallback(() => { applyTheme(); }, [applyTheme]);
 
@@ -117,13 +203,13 @@ const EbookReader: React.FC<Props> = ({ bookUrl, bookTitle = 'EPUB', onChangeBoo
 		const detachHighlights = attachToRendition(rendition);
 		const detachProgress = attachReadingProgress(rendition);
 		return () => {
-			try { detachHighlights?.(); } catch {}
-			try { detachProgress?.(); } catch {}
+			try { detachHighlights?.(); } catch { }
+			try { detachProgress?.(); } catch { }
 		};
 	}, [bindTheme, bindScrollBehavior, bindAll, readingMode, attachToRendition, attachReadingProgress]);
 
-React.useEffect(() => { applyThemeLocal(); }, [applyThemeLocal]);
-React.useEffect(() => { if (renditionRef.current) bindScrollBehavior(renditionRef.current); }, [bindScrollBehavior]);
+	React.useEffect(() => { applyThemeLocal(); }, [applyThemeLocal]);
+	React.useEffect(() => { if (renditionRef.current) bindScrollBehavior(renditionRef.current); }, [bindScrollBehavior]);
 
 	return (
 		<div className="h-screen flex flex-col">
@@ -147,7 +233,7 @@ React.useEffect(() => { if (renditionRef.current) bindScrollBehavior(renditionRe
 					<HighlightsList
 						items={highlights}
 						onShow={(cfi) => renditionRef.current?.display?.(cfi)}
-					onRemove={(id, cfi) => removeHighlight(id, cfi)}
+						onRemove={(id, cfi) => removeHighlight(id, cfi)}
 					/>
 				</div>
 			)}
