@@ -16,7 +16,7 @@ export default function useReadingMode(): UseReadingModeReturn {
 		if (readingMode === 'scrolled') {
 			return { flow: 'scrolled', manager: 'continuous', spread: 'none', allowPopups: false, allowScriptedContent: false } as const;
 		}
-		return { flow: 'paginated', manager: 'default', spread: 'none', allowPopups: false, allowScriptedContent: false } as const;
+		return { flow: 'paginated', manager: 'default', spread: 'always', allowPopups: false, allowScriptedContent: false } as const;
 	}, [readingMode]);
 
 	const bindScrollBehavior = React.useCallback((rendition: any) => {

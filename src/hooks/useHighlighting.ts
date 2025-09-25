@@ -91,23 +91,37 @@ export default function useHighlighting(params: Params): UseHighlightingReturn {
 			} catch {}
 		};
 
+
+		// Função para reaplicar todos os destaques atuais no conteúdo carregado
+		const reapplyAllHighlights = () => {
+			try {
+				if (!renditionRef.current) return;
+				for (const h of highlights) {
+					try { renditionRef.current.annotations?.remove?.(h.cfiRange, 'highlight'); } catch {}
+					try { renditionRef.current.annotations?.add?.('highlight', h.cfiRange, {}, () => {}, 'epubjs-hl', { fill: h.color, 'fill-opacity': 0.35 }); } catch {}
+				}
+			} catch {}
+		};
+
 		attachToAllContents();
-		renditionRef.current?.on?.('rendered', attachToAllContents);
+		reapplyAllHighlights();
+		const onRendered = () => { attachToAllContents(); reapplyAllHighlights(); };
+		renditionRef.current?.on?.('rendered', onRendered);
 
 		return () => {
 			if (selectionDelayRef.current) { window.clearTimeout(selectionDelayRef.current); selectionDelayRef.current = null; }
-			try { renditionRef.current?.off?.('rendered', attachToAllContents); } catch {}
+			try { renditionRef.current?.off?.('rendered', onRendered); } catch {}
 			detachAllContentListeners();
 		};
-	}, []);
+	}, [highlights]);
 
-	// Reapply highlights on reading mode change
+	// Reaplica destaques ao mudar de modo de leitura ou quando a lista muda
 	React.useEffect(() => {
 		if (!renditionRef.current) return;
 		try {
 			for (const h of highlights) {
-				renditionRef.current.annotations?.remove?.(h.cfiRange, 'highlight');
-				renditionRef.current.annotations?.add?.('highlight', h.cfiRange, {}, () => {}, 'epubjs-hl', { fill: h.color, 'fill-opacity': 0.35 });
+				try { renditionRef.current.annotations?.remove?.(h.cfiRange, 'highlight'); } catch {}
+				try { renditionRef.current.annotations?.add?.('highlight', h.cfiRange, {}, () => {}, 'epubjs-hl', { fill: h.color, 'fill-opacity': 0.35 }); } catch {}
 			}
 		} catch {}
 	}, [readingMode, highlights]);

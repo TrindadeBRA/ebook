@@ -75,6 +75,24 @@ const EbookReader: React.FC<Props> = ({ bookUrl, bookTitle = 'EPUB', onChangeBoo
 				>
 					Destaques ({highlights.length})
 				</button>
+				{readingMode === 'paginated' && (
+					<div className="ml-2 inline-flex items-center gap-1">
+						<button
+							className="px-3 py-1.5 rounded-md border text-xs leading-none bg-slate-50 border-slate-300 hover:bg-slate-100"
+							onClick={() => renditionRef.current?.prev?.()}
+							aria-label="Página anterior"
+						>
+							Anterior
+						</button>
+						<button
+							className="px-3 py-1.5 rounded-md border text-xs leading-none bg-slate-50 border-slate-300 hover:bg-slate-100"
+							onClick={() => renditionRef.current?.next?.()}
+							aria-label="Próxima página"
+						>
+							Próxima
+						</button>
+					</div>
+				)}
 			</div>
 		</div>
 	), [readingMode, themeMode, fontFamily, fontSize, highlightColor, highlights.length, highlightMode, bookTitle, onChangeBook]);
