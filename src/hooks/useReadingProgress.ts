@@ -21,7 +21,7 @@ type Options = {
 type UseReadingProgressReturn = {
 	attachToRendition: (rendition: any) => () => void;
 	percent: number;
-	goToPercent: (percent: number) => Promise<void>;
+	goToPercentage: (percent: number) => Promise<void>;
 };
 
 export default function useReadingProgress(options?: Options): UseReadingProgressReturn {
@@ -30,7 +30,7 @@ export default function useReadingProgress(options?: Options): UseReadingProgres
 	const lastChunkRef = React.useRef<number>(-1);
 	const [percent, setPercent] = React.useState<number>(0);
 
-	const goToPercent = React.useCallback(async (targetPercent: number) => {
+	const goToPercentage = React.useCallback(async (targetPercent: number) => {
 		try {
 			const rendition = renditionRef.current;
 			const book = (rendition as any)?.book;
@@ -179,7 +179,7 @@ export default function useReadingProgress(options?: Options): UseReadingProgres
 		};
 	}, [computeAndMaybeNotify]);
 
-	return { attachToRendition, percent, goToPercent };
+	return { attachToRendition, percent, goToPercentage };
 }
 
 

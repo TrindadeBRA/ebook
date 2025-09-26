@@ -20,16 +20,17 @@ type Props = {
 	bookUrl: string;
 	bookTitle?: string;
 	onChangeBook?: () => void;
+	percent?: number; // 0-100
 };
 
-const EbookReader: React.FC<Props> = ({ bookUrl, bookTitle = 'EPUB', onChangeBook }) => {
+const EbookReader: React.FC<Props> = ({ bookUrl, bookTitle = 'EPUB', onChangeBook, percent }) => {
 
 	const { location, setLocation, handleLocationChanged } = useReaderLocation();
 	const { fontFamily, setFontFamily, fontSize, setFontSize, themeMode, setThemeMode, bindToRendition: bindTheme, applyTheme } = useReaderTheme();
 	const { readingMode, setReadingMode, epubOptions, bindScrollBehavior } = useReadingMode();
 	const { renditionRef, bindAll } = useRenditionBinder();
 	const { highlightColor, setHighlightColor, showHighlights, setShowHighlights } = useHighlightSettings();
-	const { attachToRendition: attachReadingProgress, goToPercent } = useReadingProgress({
+	const { attachToRendition: attachReadingProgress, goToPercentage } = useReadingProgress({
 		step: 5,
 		onProgress: (percent) => {
 			// eslint-disable-next-line no-console
@@ -203,12 +204,21 @@ const EbookReader: React.FC<Props> = ({ bookUrl, bookTitle = 'EPUB', onChangeBoo
 		const detachHighlights = attachToRendition(rendition);
 		const detachProgress = attachReadingProgress(rendition);
 
-		try { void goToPercent(50); } catch { }
+		try {
+			if (typeof percent === 'number') {
+				void goToPercentage(percent);
+			}
+		} catch { }
 		return () => {
 			try { detachHighlights?.(); } catch { }
 			try { detachProgress?.(); } catch { }
 		};
-	}, [bindTheme, bindScrollBehavior, bindAll, readingMode, attachToRendition, attachReadingProgress, goToPercent]);
+	}, [bindTheme, bindScrollBehavior, bindAll, readingMode, attachToRendition, attachReadingProgress, goToPercentage, percent]);
+	// Navegar quando a porcentagem mudar após montado
+	React.useEffect(() => {
+		if (typeof percent !== 'number') return;
+		try { void goToPercentage(percent); } catch { }
+	}, [percent, goToPercentage]);
 
 	React.useEffect(() => { applyThemeLocal(); }, [applyThemeLocal]);
 	React.useEffect(() => { if (renditionRef.current) bindScrollBehavior(renditionRef.current); }, [bindScrollBehavior]);
