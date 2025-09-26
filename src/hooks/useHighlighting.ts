@@ -136,6 +136,16 @@ export default function useHighlighting(params: Params): UseHighlightingReturn {
 			renditionRef.current?.annotations?.add?.('highlight', cfiRange, {}, () => {}, 'epubjs-hl', { fill: color, 'fill-opacity': 0.35 });
 			setHighlights((prev) => prev.concat([{ id, text, cfiRange, color }]));
 			setPendingUndo({ id, cfiRange });
+			// eslint-disable-next-line no-console
+			console.log('[Selecionar][Confirmado]', {
+				id,
+				cfiRange,
+				text,
+				color,
+				readingMode,
+				length: text?.length ?? 0,
+				ts: new Date().toISOString(),
+			});
 		} catch {}
 		// Clear selections inside iframes
 		try {
