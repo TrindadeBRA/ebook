@@ -29,7 +29,7 @@ const EbookReader: React.FC<Props> = ({ bookUrl, bookTitle = 'EPUB', onChangeBoo
 	const { readingMode, setReadingMode, epubOptions, bindScrollBehavior } = useReadingMode();
 	const { renditionRef, bindAll } = useRenditionBinder();
 	const { highlightColor, setHighlightColor, showHighlights, setShowHighlights } = useHighlightSettings();
-	const { attachToRendition: attachReadingProgress } = useReadingProgress({
+	const { attachToRendition: attachReadingProgress, goToPercent } = useReadingProgress({
 		step: 5,
 		onProgress: (percent) => {
 			// eslint-disable-next-line no-console
@@ -202,11 +202,14 @@ const EbookReader: React.FC<Props> = ({ bookUrl, bookTitle = 'EPUB', onChangeBoo
 
 		const detachHighlights = attachToRendition(rendition);
 		const detachProgress = attachReadingProgress(rendition);
+
+		// Mock: abrir em 20% do livro para testar
+		try { void goToPercent(50); } catch { }
 		return () => {
 			try { detachHighlights?.(); } catch { }
 			try { detachProgress?.(); } catch { }
 		};
-	}, [bindTheme, bindScrollBehavior, bindAll, readingMode, attachToRendition, attachReadingProgress]);
+	}, [bindTheme, bindScrollBehavior, bindAll, readingMode, attachToRendition, attachReadingProgress, goToPercent]);
 
 	React.useEffect(() => { applyThemeLocal(); }, [applyThemeLocal]);
 	React.useEffect(() => { if (renditionRef.current) bindScrollBehavior(renditionRef.current); }, [bindScrollBehavior]);

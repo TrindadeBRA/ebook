@@ -21,6 +21,7 @@ type Options = {
 type UseReadingProgressReturn = {
 	attachToRendition: (rendition: any) => () => void;
 	percent: number;
+	goToPercent: (percent: number) => Promise<void>;
 };
 
 export default function useReadingProgress(options?: Options): UseReadingProgressReturn {
@@ -28,6 +29,49 @@ export default function useReadingProgress(options?: Options): UseReadingProgres
 	const renditionRef = React.useRef<any | null>(null);
 	const lastChunkRef = React.useRef<number>(-1);
 	const [percent, setPercent] = React.useState<number>(0);
+
+	const goToPercent = React.useCallback(async (targetPercent: number) => {
+		try {
+			const rendition = renditionRef.current;
+			const book = (rendition as any)?.book;
+			if (!rendition || !book) return;
+
+			const clamped = Math.max(0, Math.min(100, Number.isFinite(targetPercent) ? targetPercent : 0));
+			const fraction = clamped / 100;
+
+			try { await (book as any).ready; } catch {}
+			try {
+				if (book.locations && (!book.locations.length || book.locations.length === 0)) {
+					try { await book.locations.generate(1500); } catch {}
+				}
+			} catch {}
+
+			// Preferir cfiFromPercentage quando disponível
+			try {
+				const hasCFIFromPct = Boolean(book?.locations?.cfiFromPercentage);
+				if (hasCFIFromPct) {
+					const cfi = book.locations.cfiFromPercentage(fraction);
+					if (cfi) {
+						await (rendition as any).display(cfi);
+						return;
+					}
+				}
+			} catch {}
+
+			// Fallback: usar índice do spine aproximado
+			try {
+				const totalSpine: number = book?.spine?.spineItems?.length || 0;
+				if (totalSpine > 0) {
+					const idx = Math.max(0, Math.min(totalSpine - 1, Math.floor(fraction * (totalSpine - 1))));
+					const href = book.spine.spineItems[idx]?.href;
+					if (href) {
+						await (rendition as any).display(href);
+						return;
+					}
+				}
+			} catch {}
+		} catch {}
+	}, []);
 
 	const computeAndMaybeNotify = React.useCallback((location: any) => {
 		try {
@@ -135,7 +179,7 @@ export default function useReadingProgress(options?: Options): UseReadingProgres
 		};
 	}, [computeAndMaybeNotify]);
 
-	return { attachToRendition, percent };
+	return { attachToRendition, percent, goToPercent };
 }
 
 
