@@ -6,7 +6,6 @@ import BookSelector, { BookInfo } from './components/BookSelector';
  * TODO:
  * - Implementar voltar a pagina referente a uma % integrado ao useReadingProgress
  * - Tentar corrigir o gatilho de destaque de texto no mobile
- * - Ajustar Toolbar Mobile
  */
 
 const App: React.FC = () => {
