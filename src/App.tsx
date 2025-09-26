@@ -36,7 +36,7 @@ const App: React.FC = () => {
         bookUrl={`/asset/${selected.file}`}
         bookTitle={selected.title}
         onChangeBook={() => setSelected(null)}
-        percent={95}
+        percent={20}
       />
     </div>
   );
