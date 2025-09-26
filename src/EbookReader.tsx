@@ -97,7 +97,7 @@ const EbookReader: React.FC<Props> = ({ bookUrl, bookTitle = 'EPUB', onChangeBoo
 				>
 					Destaques ({highlights.length})
 				</button>
-				{readingMode === 'paginated' && (
+				{/* {readingMode === 'paginated' && (
 					<div className="ml-2 inline-flex items-center gap-1">
 						<button
 							className="px-3 py-1.5 rounded-md border text-xs leading-none bg-slate-50 border-slate-300 hover:bg-slate-100"
@@ -114,7 +114,7 @@ const EbookReader: React.FC<Props> = ({ bookUrl, bookTitle = 'EPUB', onChangeBoo
 							Próxima
 						</button>
 					</div>
-				)}
+				)} */}
 			</div>
 		</div>
 	);
@@ -161,7 +161,7 @@ const EbookReader: React.FC<Props> = ({ bookUrl, bookTitle = 'EPUB', onChangeBoo
 					>
 						Destaques ({highlights.length})
 					</button>
-					{readingMode === 'paginated' && (
+					{/* {readingMode === 'paginated' && (
 						<div className="ml-2 inline-flex items-center gap-1">
 							<button
 								className="px-3 py-1.5 rounded-md border text-xs leading-none bg-slate-50 border-slate-300 hover:bg-slate-100"
@@ -178,7 +178,7 @@ const EbookReader: React.FC<Props> = ({ bookUrl, bookTitle = 'EPUB', onChangeBoo
 								Próxima
 							</button>
 						</div>
-					)}
+					)} */}
 				</div>
 			</div>
 		</>
@@ -203,7 +203,6 @@ const EbookReader: React.FC<Props> = ({ bookUrl, bookTitle = 'EPUB', onChangeBoo
 		const detachHighlights = attachToRendition(rendition);
 		const detachProgress = attachReadingProgress(rendition);
 
-		// Mock: abrir em 20% do livro para testar
 		try { void goToPercent(50); } catch { }
 		return () => {
 			try { detachHighlights?.(); } catch { }
