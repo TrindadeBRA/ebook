@@ -1,6 +1,6 @@
 import React from 'react';
 
-type ThemeMode = 'light' | 'dark';
+type ThemeMode = 'light' | 'dark' | 'yellow';
 
 type UseReaderThemeReturn = {
 	fontFamily: string;
@@ -21,19 +21,23 @@ export default function useReaderTheme(): UseReaderThemeReturn {
 
 	const applyTheme = React.useCallback(() => {
 		if (!renditionRef.current) return;
+		const isDark = themeMode === 'dark';
+		const isYellow = themeMode === 'yellow';
+		const textColor = isDark ? '#ffffff' : '#000000';
+		const backgroundColor = isDark ? '#000000' : (isYellow ? '#FEF3C7' : '#ffffff'); // amber-100
 		renditionRef.current.themes.register('custom', {
 			body: {
 				'font-family': `${fontFamily} !important`,
 				'font-size': fontSize,
-				'color': themeMode === 'dark' ? '#ffffff' : '#000000',
-				'background': themeMode === 'dark' ? '#000000' : '#ffffff',
+				'color': textColor,
+				'background': backgroundColor,
 			},
 		});
 		renditionRef.current.themes.select('custom');
 		renditionRef.current.themes.override('font-family', `${fontFamily} !important`);
 		renditionRef.current.themes.fontSize(fontSize);
-		renditionRef.current.themes.override('color', themeMode === 'dark' ? '#ffffff' : '#000000');
-		renditionRef.current.themes.override('background', themeMode === 'dark' ? '#000000' : '#ffffff');
+		renditionRef.current.themes.override('color', textColor);
+		renditionRef.current.themes.override('background', backgroundColor);
 	}, [fontFamily, fontSize, themeMode]);
 
 	const bindToRendition = React.useCallback((rendition: any) => {
