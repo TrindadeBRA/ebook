@@ -7,6 +7,11 @@ import BookSelector, { BookInfo } from './components/BookSelector';
  * - Tentar corrigir o gatilho de destaque de texto no mobile
  */
 
+// se celular ios, executar um alerta para instalar o app
+if (navigator.userAgent.includes('iPhone') || navigator.userAgent.includes('iPad')) {
+  alert('Instale o app para uma melhor experiência');
+}
+
 const App: React.FC = () => {
   const [selected, setSelected] = React.useState<BookInfo | null>(null);
 
